@@ -1,1 +1,1 @@
-web: gunicorn nstp_attendance.wsgi
+web: gunicorn nstp_attendance.wsgi:application --bind 0.0.0.0:$PORT
