@@ -2,6 +2,7 @@ django
 django-crispy-forms
 crispy-bootstrap5
 Pillow
+reportlab
 openpyxl
 gunicorn
 whitenoise
