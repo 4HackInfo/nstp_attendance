@@ -1,0 +1,7 @@
+django
+django-crispy-forms
+crispy-bootstrap5
+Pillow
+openpyxl
+gunicorn
+whitenoise

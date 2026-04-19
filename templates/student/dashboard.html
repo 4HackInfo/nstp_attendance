@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Dashboard - NSTP Attendance{% endblock %}
+
+{% block content %}
+<div class="fade-in-up">
+    <h2 class="mb-4"><i class="bi bi-speedometer2"></i> Student Dashboard</h2>
+    
+    <div class="row">
+        <!-- Preferred Number Card -->
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-hash"></i> Your Preferred Number</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="display-number">{{ student.preferred_number }}</div>
+                    <p class="text-muted">Tell this number to the Task Force for Time In/Out</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Student Info Card -->
+        <div class="col-md-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-person-badge"></i> Student Information</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <td width="150"><strong>Name:</strong></td>
+                            <td>{{ student.first_name }} {{ student.last_name }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Student ID:</strong></td>
+                            <td>{{ student.student_id }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Course:</strong></td>
+                            <td>{{ student.get_course_display }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Company:</strong></td>
+                            <td>{{ student.get_company_display }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Year Level:</strong></td>
+                            <td>{{ student.get_year_level_display }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Email:</strong></td>
+                            <td>{{ student.user.email }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Attendance History -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-clock-history"></i> Attendance History</h5>
+        </div>
+        <div class="card-body">
+            {% if attendance_history %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Time In</th>
+                            <th>Time Out</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for attendance in attendance_history %}
+                        <tr>
+                            <td>{{ attendance.date|date:"F d, Y" }}</td>
+                            <td>
+                                {% if attendance.time_in %}
+                                    <i class="bi bi-check-circle-fill icon-check"></i>
+                                    {{ attendance.time_in|time:"h:i A" }}
+                                {% else %}
+                                    <i class="bi bi-x-circle-fill icon-wrong"></i>
+                                    Not recorded
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if attendance.time_out %}
+                                    <i class="bi bi-check-circle-fill icon-check"></i>
+                                    {{ attendance.time_out|time:"h:i A" }}
+                                {% else %}
+                                    <i class="bi bi-x-circle-fill icon-wrong"></i>
+                                    Not recorded
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="status-badge status-{{ attendance.status }}">
+                                    {{ attendance.status|upper }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> No attendance records found.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

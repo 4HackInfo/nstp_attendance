@@ -1,0 +1,662 @@
+{% extends 'base.html' %}
+
+{% block title %}Instructor Dashboard - NSTP Attendance{% endblock %}
+
+{% block extra_css %}
+<style>
+    .refresh-btn {
+        cursor: pointer;
+    }
+    .stats-card {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .auto-refresh-indicator {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    /* Sorting styles */
+    .sortable {
+        cursor: pointer;
+        user-select: none;
+        position: relative;
+        padding-right: 20px !important;
+        white-space: nowrap;
+    }
+    
+    .sortable:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .sort-icon {
+        position: absolute;
+        right: 5px;
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: 0.5;
+        font-size: 0.875rem;
+    }
+    
+    .sort-icon.active {
+        opacity: 1;
+        color: #fbbf24;
+    }
+    
+    .sort-asc .sort-icon::before {
+        content: "▲";
+    }
+    
+    .sort-desc .sort-icon::before {
+        content: "▼";
+    }
+    
+    .table th {
+        background: #1e3a8a;
+        color: white;
+        position: relative;
+    }
+    
+    .sort-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    
+    .sort-btn {
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        transition: all 0.3s;
+    }
+    
+    .sort-btn.active {
+        background: #1e3a8a;
+        color: white;
+    }
+    
+    .status-badge {
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+    }
+    
+    .status-present {
+        background: #10b981;
+        color: white;
+    }
+    
+    .status-absent {
+        background: #ef4444;
+        color: white;
+    }
+    
+    .status-late {
+        background: #f59e0b;
+        color: white;
+    }
+    
+    .status-cutting {
+        background: #8b5cf6;
+        color: white;
+    }
+    
+    .icon-check {
+        color: #10b981;
+    }
+    
+    .icon-wrong {
+        color: #ef4444;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in-up">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-person-workspace"></i> Instructor Dashboard</h2>
+        <div>
+            <button class="btn btn-outline-primary" onclick="refreshData()">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+        </div>
+    </div>
+    
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h6 class="text-muted">Total Students</h6>
+                <h3 class="text-success">{{ total_records }}</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h6 class="text-muted">Date</h6>
+                <h3 class="text-primary">{{ filter_date|date:"M d, Y" }}</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h6 class="text-muted">Present</h6>
+                <h3 class="text-success">{{ stats.present }}</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h6 class="text-muted">Absent</h6>
+                <h3 class="text-danger">{{ stats.absent }}</h3>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filter Card -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-funnel"></i> Filter Students</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" id="filterForm">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Company</label>
+                        {{ form.company }}
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Course</label>
+                        {{ form.course }}
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Status</label>
+                        {{ form.status }}
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Date</label>
+                        {{ form.date }}
+                    </div>
+                </div>
+                <!-- In the Filter Card section, update the Export CSV button -->
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search"></i> Apply Filters
+                        </button>
+                        <a href="{% url 'instructor_dashboard' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Clear
+                        </a>
+                        <button type="button" class="btn btn-success float-end" onclick="exportWithSort()">
+                            <i class="bi bi-download"></i> Export to CSV
+                        </button>
+                    </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Attendance Table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-table"></i> 
+                Attendance Records - {{ filter_date|date:"F d, Y" }}
+            </h5>
+            <div class="sort-buttons">
+                <button class="btn btn-outline-primary sort-btn text-white" onclick="sortTable('name', 'asc')">
+                    <i class="bi bi-sort-alpha-down "></i> A-Z
+                </button>
+                <button class="btn btn-outline-primary sort-btn text-white" onclick="sortTable('name', 'desc')">
+                    <i class="bi bi-sort-alpha-up"></i> Z-A
+                </button>
+                <button class="btn btn-outline-primary sort-btn text-white" onclick="sortTable('status')">
+                    <i class="bi bi-funnel"></i> By Status
+                </button>
+                <button class="btn btn-outline-primary sort-btn text-white" onclick="sortTable('time')">
+                    <i class="bi bi-clock"></i> By Time In
+                </button>
+                <button class="btn btn-outline-secondary sort-btn text-white" onclick="resetSort()">
+                    <i class="bi bi-arrow-counterclockwise"></i> Reset
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if attendance_data %}
+            <div class="table-responsive">
+                <table class="table table-hover" id="attendanceTable">
+                    <thead>
+                        <tr>
+                            <th class="sortable" onclick="sortTable('studentId')">
+                                Student ID
+                                <span class="sort-icon"></span>
+                            </th>
+                            <th class="sortable" onclick="sortTable('name')">
+                                Name
+                                <span class="sort-icon"></span>
+                            </th>
+                            <th class="sortable" onclick="sortTable('course')">
+                                Course
+                                <span class="sort-icon"></span>
+                            </th>
+                            <th class="sortable" onclick="sortTable('company')">
+                                Company
+                                <span class="sort-icon"></span>
+                            </th>
+                            <th class="sortable" onclick="sortTable('year')">
+                                Year
+                                <span class="sort-icon"></span>
+                            </th>
+                            <th class="sortable" onclick="sortTable('status')">
+                                Status
+                                <span class="sort-icon"></span>
+                            </th>
+                            <th class="sortable" onclick="sortTable('timeIn')">
+                                Time In
+                                <span class="sort-icon"></span>
+                            </th>
+                            <th class="sortable" onclick="sortTable('timeOut')">
+                                Time Out
+                                <span class="sort-icon"></span>
+                            </th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        {% for data in attendance_data %}
+                        <tr data-student-id="{{ data.student.student_id }}"
+                            data-name="{{ data.student.last_name }} {{ data.student.first_name }}"
+                            data-course="{{ data.student.get_course_display }}"
+                            data-company="{{ data.student.get_company_display }}"
+                            data-year="{{ data.student.year_level }}"
+                            data-status="{{ data.status }}"
+                            data-time-in="{{ data.time_in|date:'Y-m-d H:i:s'|default:'' }}"
+                            data-time-out="{{ data.time_out|date:'Y-m-d H:i:s'|default:'' }}">
+                            <td>{{ data.student.student_id }}</td>
+                            <td>{{ data.student.first_name }} {{ data.student.last_name }}</td>
+                            <td>{{ data.student.get_course_display }}</td>
+                            <td>{{ data.student.get_company_display }}</td>
+                            <td>{{ data.student.get_year_level_display }}</td>
+                            <td>
+                                <span class="status-badge status-{{ data.status }}">
+                                    {{ data.status|upper }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if data.time_in %}
+                                    <i class="bi bi-check-circle-fill icon-check"></i>
+                                    {{ data.time_in|time:"h:i A" }}
+                                {% else %}
+                                    <i class="bi bi-x-circle-fill icon-wrong"></i>
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if data.time_out %}
+                                    <i class="bi bi-check-circle-fill icon-check"></i>
+                                    {{ data.time_out|time:"h:i A" }}
+                                {% else %}
+                                    <i class="bi bi-x-circle-fill icon-wrong"></i>
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" 
+                                        onclick="showOverrideModal({{ data.student.id }}, '{{ data.student.first_name }} {{ data.student.last_name }}', '{{ data.status }}')">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> No attendance records found for the selected filters.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Override Modal -->
+<div class="modal fade" id="overrideModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Override Attendance</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="overrideForm" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>Overriding attendance for: <strong id="studentName"></strong></p>
+                    <input type="hidden" name="date" value="{{ filter_date|date:'Y-m-d' }}">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <select name="status" class="form-select" required>
+                            <option value="present">Present</option>
+                            <option value="absent">Absent</option>
+                            <option value="late">Late</option>
+                            <option value="cutting">Cutting</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Notes (Optional)</label>
+                        <textarea name="notes" class="form-control" rows="3" placeholder="Reason for override..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Override</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentStudentId = null;
+let autoRefreshInterval = null;
+let lastUpdateTime = new Date();
+let currentSort = { column: null, direction: 'asc' };
+
+function showOverrideModal(studentId, studentName, currentStatus) {
+    currentStudentId = studentId;
+    document.getElementById('studentName').textContent = studentName;
+    
+    const form = document.getElementById('overrideForm');
+    form.action = `/attendance/override/${studentId}/`;
+    
+    const statusSelect = form.querySelector('select[name="status"]');
+    statusSelect.value = currentStatus;
+    
+    const modal = new bootstrap.Modal(document.getElementById('overrideModal'));
+    modal.show();
+}
+
+// Sorting function
+function sortTable(column) {
+    const tbody = document.getElementById('tableBody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    // Toggle direction if same column
+    if (currentSort.column === column) {
+        currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSort.column = column;
+        currentSort.direction = 'asc';
+    }
+    
+    // Update sort icons
+    document.querySelectorAll('.sortable').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        const icon = th.querySelector('.sort-icon');
+        if (icon) {
+            icon.classList.remove('active');
+        }
+    });
+    
+    const activeHeader = Array.from(document.querySelectorAll('.sortable')).find(th => 
+        th.textContent.trim().toLowerCase().includes(column.toLowerCase()) ||
+        (column === 'name' && th.textContent.includes('Name')) ||
+        (column === 'studentId' && th.textContent.includes('Student ID')) ||
+        (column === 'timeIn' && th.textContent.includes('Time In')) ||
+        (column === 'timeOut' && th.textContent.includes('Time Out'))
+    );
+    
+    if (activeHeader) {
+        activeHeader.classList.add(`sort-${currentSort.direction}`);
+        activeHeader.querySelector('.sort-icon')?.classList.add('active');
+    }
+    
+    // Sort rows
+    rows.sort((a, b) => {
+        let aVal, bVal;
+        
+        switch(column) {
+            case 'studentId':
+                aVal = a.dataset.studentId || '';
+                bVal = b.dataset.studentId || '';
+                break;
+            case 'name':
+                aVal = a.dataset.name || '';
+                bVal = b.dataset.name || '';
+                break;
+            case 'course':
+                aVal = a.dataset.course || '';
+                bVal = b.dataset.course || '';
+                break;
+            case 'company':
+                aVal = a.dataset.company || '';
+                bVal = b.dataset.company || '';
+                break;
+            case 'year':
+                aVal = a.dataset.year || '';
+                bVal = b.dataset.year || '';
+                break;
+            case 'status':
+                const statusOrder = { 'present': 1, 'late': 2, 'cutting': 3, 'absent': 4 };
+                aVal = statusOrder[a.dataset.status] || 5;
+                bVal = statusOrder[b.dataset.status] || 5;
+                break;
+            case 'timeIn':
+                aVal = a.dataset.timeIn || '';
+                bVal = b.dataset.timeIn || '';
+                // Empty times go to the end
+                if (!aVal && !bVal) return 0;
+                if (!aVal) return currentSort.direction === 'asc' ? 1 : -1;
+                if (!bVal) return currentSort.direction === 'asc' ? -1 : 1;
+                break;
+            case 'timeOut':
+                aVal = a.dataset.timeOut || '';
+                bVal = b.dataset.timeOut || '';
+                if (!aVal && !bVal) return 0;
+                if (!aVal) return currentSort.direction === 'asc' ? 1 : -1;
+                if (!bVal) return currentSort.direction === 'asc' ? -1 : 1;
+                break;
+            default:
+                return 0;
+        }
+        
+        // Compare values
+        if (typeof aVal === 'string') {
+            aVal = aVal.toLowerCase();
+            bVal = bVal.toLowerCase();
+        }
+        
+        if (aVal < bVal) return currentSort.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return currentSort.direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+    
+    // Reorder rows
+    rows.forEach(row => tbody.appendChild(row));
+    
+    // Update button states
+    updateSortButtons();
+}
+
+function updateSortButtons() {
+    document.querySelectorAll('.sort-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+}
+
+function resetSort() {
+    currentSort = { column: null, direction: 'asc' };
+    
+    // Remove sort classes
+    document.querySelectorAll('.sortable').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        const icon = th.querySelector('.sort-icon');
+        if (icon) {
+            icon.classList.remove('active');
+        }
+    });
+    
+    // Sort by last name ascending (default)
+    sortTable('name');
+    updateSortButtons();
+}
+
+function refreshData() {
+    const refreshBtn = document.querySelector('button[onclick="refreshData()"]');
+    const originalText = refreshBtn.innerHTML;
+    refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise spinning"></i> Refreshing...';
+    refreshBtn.disabled = true;
+    
+    const currentUrl = new URL(window.location.href);
+    fetch(currentUrl.pathname + currentUrl.search)
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newContent = doc.querySelector('.fade-in-up');
+            document.querySelector('.fade-in-up').innerHTML = newContent.innerHTML;
+            
+            lastUpdateTime = new Date();
+            updateLastUpdateTime();
+            
+            // Re-apply sorting if was active
+            if (currentSort.column) {
+                sortTable(currentSort.column);
+            } else {
+                // Default sort by name
+                setTimeout(() => sortTable('name'), 100);
+            }
+            
+            refreshBtn.innerHTML = originalText;
+            refreshBtn.disabled = false;
+        })
+        .catch(error => {
+            console.error('Error refreshing:', error);
+            location.reload();
+        });
+}
+
+function updateLastUpdateTime() {
+    const timeDiff = Math.floor((new Date() - lastUpdateTime) / 1000);
+    const lastUpdateSpan = document.getElementById('lastUpdate');
+    
+    if (timeDiff < 60) {
+        lastUpdateSpan.textContent = `${timeDiff} seconds ago`;
+    } else if (timeDiff < 3600) {
+        lastUpdateSpan.textContent = `${Math.floor(timeDiff / 60)} minutes ago`;
+    } else {
+        lastUpdateSpan.textContent = lastUpdateTime.toLocaleTimeString();
+    }
+}
+
+function startAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+    
+    autoRefreshInterval = setInterval(() => {
+        refreshData();
+    }, 30000);
+    
+    setInterval(updateLastUpdateTime, 1000);
+}
+
+// Initialize default sorting by Last Name A-Z
+document.addEventListener('DOMContentLoaded', function() {
+    startAutoRefresh();
+    updateLastUpdateTime();
+    
+    // Default sort by name ascending (A-Z)
+    setTimeout(() => {
+        sortTable('name');
+    }, 100);
+});
+
+window.addEventListener('beforeunload', function() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+});
+
+// Add spinning animation
+const style = document.createElement('style');
+style.textContent = `
+    .spinning {
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(style);
+
+// Export CSV with current sort and filters
+function exportWithSort() {
+    // Get current filter values
+    const companyFilter = document.querySelector('select[name="company"]')?.value || '';
+    const courseFilter = document.querySelector('select[name="course"]')?.value || '';
+    const statusFilter = document.querySelector('select[name="status"]')?.value || '';
+    const dateFilter = document.querySelector('input[name="date"]')?.value || '';
+    
+    // Get current sort parameters
+    const sortColumn = currentSort.column || 'name';
+    const sortDirection = currentSort.direction || 'asc';
+    
+    // Build URL with all parameters
+    let url = `/attendance/export-csv/?`;
+    const params = new URLSearchParams();
+    
+    if (companyFilter) params.append('company', companyFilter);
+    if (courseFilter) params.append('course', courseFilter);
+    if (statusFilter) params.append('status', statusFilter);
+    if (dateFilter) params.append('date', dateFilter);
+    
+    // Add sort parameters
+    params.append('sort', sortColumn);
+    params.append('direction', sortDirection);
+    
+    url += params.toString();
+    
+    // Show loading indicator
+    const exportBtn = document.querySelector('button[onclick="exportWithSort()"]');
+    const originalText = exportBtn.innerHTML;
+    exportBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Preparing...';
+    exportBtn.disabled = true;
+    
+    // Trigger download
+    window.location.href = url;
+    
+    // Reset button after short delay
+    setTimeout(() => {
+        exportBtn.innerHTML = originalText;
+        exportBtn.disabled = false;
+    }, 2000);
+    
+    // Show toast notification
+    showToast('CSV export started. The file will respect current filters and sorting.', 'success');
+}
+
+// Toast notification function
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    toast.style.top = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '9999';
+    toast.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+    toast.style.maxWidth = '400px';
+    toast.innerHTML = `
+        <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 5000);
+}
+</script>
+{% endblock %}

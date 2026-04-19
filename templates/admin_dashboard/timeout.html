@@ -1,0 +1,414 @@
+{% extends 'base.html' %}
+
+{% block title %}Time Out - NSTP Attendance{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pending-item {
+        background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+        border-left: 4px solid #8b5cf6;
+        margin-bottom: 10px;
+        padding: 15px;
+        border-radius: 8px;
+        position: relative;
+        animation: slideIn 0.3s ease-out;
+        transition: all 0.3s;
+    }
+    
+    .pending-item.saving {
+        background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+        border-left-color: #10b981;
+    }
+    
+    .confirmed-item {
+        background: #f3f4f6;
+        border-left: 4px solid #10b981;
+        margin-bottom: 8px;
+        padding: 12px;
+        border-radius: 8px;
+    }
+    
+    .stack-badge {
+        position: absolute;
+        top: -8px;
+        right: 10px;
+        background: #8b5cf6;
+        color: white;
+        border-radius: 20px;
+        padding: 2px 10px;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+    
+    .stack-badge.saved {
+        background: #10b981;
+    }
+    
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    .stack-container {
+        border: 2px dashed #e5e7eb;
+        border-radius: 10px;
+        padding: 15px;
+        min-height: 200px;
+        background: #fafafa;
+    }
+    
+    .btn-undo {
+        background: #dc2626;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    
+    .btn-undo:hover {
+        background: #b91c1c;
+        transform: scale(1.05);
+    }
+    
+    .btn-undo:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+    }
+    
+    .auto-save-badge {
+        background: #8b5cf6;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        display: inline-block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Input Form Column -->
+    <div class="col-md-5">
+        <div class="card fade-in-up">
+            <div class="card-header">
+                <h4 class="mb-0"><i class="bi bi-box-arrow-right"></i> Time Out</h4>
+            </div>
+            <div class="card-body p-4">
+                <form method="post" id="timeoutForm">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Enter Student's Preferred Number</label>
+                        {{ form.preferred_number }}
+                        {% if form.preferred_number.errors %}
+                            <div class="text-danger mt-2">
+                                {{ form.preferred_number.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <button type="submit" class="btn btn-warning w-100 text-white">
+                        <i class="bi bi-check-circle"></i> Record Time Out
+                    </button>
+                </form>
+                
+                <div class="mt-3">
+                    <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-arrow-left"></i> Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pending Stack Column -->
+    <div class="col-md-7">
+        <div class="card fade-in-up">
+            <div class="card-header" style="background: linear-gradient(135deg, #8b5cf6, #a78bfa);">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-white">
+                        <i class="bi bi-hourglass-split"></i> Pending Time Outs 
+                        <span class="badge bg-danger ms-2" id="pendingCount">0</span>
+                    </h5>
+                    <span class="auto-save-badge" style="background: #7c3aed;">
+                        <i class="bi bi-cloud-upload"></i> Auto-save in 15s
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="stack-container" id="pendingStack">
+                    {% for pending in pending_timeouts %}
+                    <div class="pending-item" id="pending-{{ pending.id }}" data-id="{{ pending.id }}" data-expires="{{ pending.expires_at.isoformat }}">
+                        <span class="stack-badge" id="badge-{{ pending.id }}">SAVING IN <span id="timer-{{ pending.id }}">15</span>s</span>
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">
+                                    <span class="badge bg-primary">#{{ pending.student.preferred_number }}</span>
+                                    <strong>{{ pending.student.first_name }} {{ pending.student.last_name }}</strong>
+                                </h6>
+                                <small class="text-muted">
+                                    <i class="bi bi-clock"></i> {{ pending.timestamp|time:"h:i:s A" }}
+                                </small>
+                            </div>
+                            <div>
+                                <button class="btn-undo" id="undoBtn-{{ pending.id }}" onclick="cancelPending({{ pending.id }})">
+                                    <i class="bi bi-arrow-counterclockwise"></i> UNDO
+                                </button>
+                            </div>
+                        </div>
+                        <div class="progress mt-2" style="height: 4px;">
+                            <div class="progress-bar" id="progress-{{ pending.id }}" style="width: 100%; background: #8b5cf6 !important;"></div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted text-center py-4" id="noPendingMessage">
+                        <i class="bi bi-inbox"></i> No pending time-outs
+                    </p>
+                    {% endfor %}
+                </div>
+                
+                <!-- Confirmed Stack -->
+                <div class="mt-4">
+                    <h6 class="text-muted mb-2">
+                        <i class="bi bi-check-circle-fill text-success"></i> Saved to Database
+                    </h6>
+                    <div style="max-height: 300px; overflow-y: auto;" id="confirmedList">
+                        {% for record in confirmed_attendance %}
+                        <div class="confirmed-item">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <span class="badge bg-secondary">#{{ record.student.preferred_number }}</span>
+                                    <strong>{{ record.student.first_name }} {{ record.student.last_name }}</strong>
+                                </div>
+                                <div>
+                                    <small class="text-muted">{{ record.time_out|time:"h:i A" }}</small>
+                                    <span class="badge bg-{% if record.status == 'present' %}success{% elif record.status == 'late' %}warning{% else %}secondary{% endif %} ms-2">
+                                        {{ record.status|upper }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+const csrftoken = getCookie('csrftoken');
+const timers = new Map();
+
+function startTimer(pendingId, initialSeconds) {
+    let seconds = initialSeconds;
+    const timerElement = document.getElementById(`timer-${pendingId}`);
+    const progressBar = document.getElementById(`progress-${pendingId}`);
+    const pendingItem = document.getElementById(`pending-${pendingId}`);
+    const undoBtn = document.getElementById(`undoBtn-${pendingId}`);
+    const badge = document.getElementById(`badge-${pendingId}`);
+    
+    if (!timerElement) return;
+    
+    const timer = setInterval(() => {
+        seconds--;
+        timerElement.textContent = seconds;
+        
+        const percent = (seconds / 15) * 100;
+        progressBar.style.width = `${Math.max(0, percent)}%`;
+        
+        if (seconds <= 5) {
+            progressBar.style.background = '#dc2626 !important';
+            timerElement.style.color = '#dc2626';
+        }
+        
+        if (seconds <= 0) {
+            clearInterval(timer);
+            timers.delete(pendingId);
+            
+            if (undoBtn) {
+                undoBtn.disabled = true;
+                undoBtn.textContent = 'SAVING...';
+            }
+            
+            if (badge) {
+                badge.textContent = 'SAVING...';
+                badge.classList.add('saved');
+            }
+            
+            if (pendingItem) {
+                pendingItem.classList.add('saving');
+            }
+            
+            confirmPending(pendingId);
+        }
+    }, 1000);
+    
+    timers.set(pendingId, timer);
+}
+
+function confirmPending(pendingId) {
+    fetch(`/attendance/confirm-pending/${pendingId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const pendingItem = document.getElementById(`pending-${pendingId}`);
+            const badge = document.getElementById(`badge-${pendingId}`);
+            
+            if (badge) {
+                badge.textContent = 'SAVED ✓';
+                badge.style.background = '#10b981';
+            }
+            
+            setTimeout(() => {
+                if (pendingItem) {
+                    pendingItem.style.animation = 'slideIn 0.3s ease-out reverse';
+                    setTimeout(() => {
+                        pendingItem.remove();
+                        updatePendingCount();
+                        location.reload();
+                    }, 300);
+                }
+            }, 2000);
+            
+            showToast(data.message, 'success');
+        } else {
+            showToast(data.message, 'error');
+        }
+    });
+}
+
+function cancelPending(pendingId) {
+    if (!confirm('UNDO this time-out? It will NOT be saved to database.')) {
+        return;
+    }
+    
+    const timer = timers.get(pendingId);
+    if (timer) {
+        clearInterval(timer);
+        timers.delete(pendingId);
+    }
+    
+    fetch(`/attendance/cancel-pending/${pendingId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const element = document.getElementById(`pending-${pendingId}`);
+            if (element) {
+                element.style.animation = 'slideIn 0.3s ease-out reverse';
+                setTimeout(() => {
+                    element.remove();
+                    updatePendingCount();
+                }, 300);
+            }
+            showToast(data.message, 'success');
+        } else {
+            showToast(data.message, 'error');
+        }
+    });
+}
+
+function updatePendingCount() {
+    const count = document.querySelectorAll('.pending-item').length;
+    const countBadge = document.getElementById('pendingCount');
+    if (countBadge) countBadge.textContent = count;
+    
+    if (count === 0) {
+        const stack = document.getElementById('pendingStack');
+        const existing = document.getElementById('noPendingMessage');
+        if (!existing) {
+            const noPending = document.createElement('p');
+            noPending.id = 'noPendingMessage';
+            noPending.className = 'text-muted text-center py-4';
+            noPending.innerHTML = '<i class="bi bi-inbox"></i> No pending time-outs';
+            stack.appendChild(noPending);
+        }
+    }
+}
+
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+    toast.style.top = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '9999';
+    toast.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+    toast.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const inputField = document.getElementById('id_preferred_number');
+    if (inputField) inputField.focus();
+    
+    updatePendingCount();
+    
+    document.querySelectorAll('.pending-item').forEach(item => {
+        const pendingId = item.dataset.id;
+        const expiresStr = item.dataset.expires;
+        
+        if (expiresStr) {
+            const expires = new Date(expiresStr);
+            const now = new Date();
+            const secondsLeft = Math.max(0, Math.floor((expires - now) / 1000));
+            
+            if (secondsLeft > 0) {
+                startTimer(pendingId, secondsLeft);
+            } else {
+                confirmPending(pendingId);
+            }
+        }
+    });
+    
+    document.getElementById('timeoutForm').addEventListener('submit', function(e) {
+        const input = document.getElementById('id_preferred_number');
+        if (!input.value) {
+            e.preventDefault();
+            showToast('Please enter a preferred number', 'error');
+        }
+    });
+});
+
+window.addEventListener('beforeunload', function() {
+    timers.forEach((timer) => clearInterval(timer));
+});
+</script>
+{% endblock %}
