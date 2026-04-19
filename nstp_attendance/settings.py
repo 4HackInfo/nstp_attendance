@@ -3,6 +3,7 @@ Django settings for nstp_attendance project.
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -14,12 +15,12 @@ SECRET_KEY = 'django-insecure-nstp-attendance-system-2024-change-this'
 DEBUG = False
 
 ALLOWED_HOSTS = [
-"cec-nstp-attendance.up.railway.app",
-"localhost",
+    "cec-nstp-attendance.up.railway.app",
+    "localhost",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-"https://cec-nstp-attendance.up.railway.app/",
+    "https://cec-nstp-attendance.up.railway.app",
 ]
 
 # Application definition
@@ -46,6 +47,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'nstp_attendance.urls'
@@ -99,9 +101,15 @@ USE_I18N = True
 USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_URL = '/static/'
+
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
+
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
 MEDIA_URL = 'media/'
