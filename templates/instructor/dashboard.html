@@ -55,9 +55,13 @@
     }
     
     .table th {
-        background: #1e3a8a;
-        color: white;
+        background: #0f2461;
+        color: rgb(217, 255, 5);
         position: relative;
+    }
+
+     .table th:hover {
+        background: #1e4fe2;
     }
     
     .sort-buttons {
@@ -259,7 +263,7 @@
                                 Time Out
                                 <span class="sort-icon"></span>
                             </th>
-                            <th>Actions</th>
+                           
                         </tr>
                     </thead>
                     <tbody id="tableBody">
@@ -301,10 +305,6 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <button class="btn btn-sm btn-outline-primary" 
-                                        onclick="showOverrideModal({{ data.student.id }}, '{{ data.student.first_name }} {{ data.student.last_name }}', '{{ data.status }}')">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
                             </td>
                         </tr>
                         {% endfor %}

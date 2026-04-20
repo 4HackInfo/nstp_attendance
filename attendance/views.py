@@ -26,12 +26,9 @@ def admin_dashboard(request):
     
     # Count different statuses
     present_today = today_attendance.filter(status='present').count()
+    absent_today = today_attendance.filter(status='absent').count()
     late_today = today_attendance.filter(status='late').count()
     cutting_today = today_attendance.filter(status='cutting').count()
-    
-    # FIX: Absent = Total students - (students who have any record today)
-    students_with_records_today = today_attendance.values('student').distinct().count()
-    absent_today = total_students - students_with_records_today
     
     context = {
         'total_students': total_students,
