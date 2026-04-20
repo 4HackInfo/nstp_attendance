@@ -2,54 +2,128 @@
 
 {% block title %}Student Dashboard - NSTP Attendance{% endblock %}
 
+{% block extra_css %}
+<style>
+    .display-number {
+        font-size: 6rem;
+        font-weight: bold;
+        color: var(--primary-blue);
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        line-height: 1.2;
+        margin: 10px 0;
+    }
+    
+    .preferred-number-label {
+        font-size: 1.1rem;
+        color: #6c757d;
+        margin-bottom: 5px;
+    }
+    
+    .number-hint {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-top: 10px;
+    }
+    
+    .student-info-card {
+        height: 100%;
+    }
+    
+    .status-badge {
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+    }
+    
+    .status-present {
+        background: #10b981;
+        color: white;
+    }
+    
+    .status-absent {
+        background: #ef4444;
+        color: white;
+    }
+    
+    .status-late {
+        background: #f59e0b;
+        color: white;
+    }
+    
+    .status-cutting {
+        background: #8b5cf6;
+        color: white;
+    }
+    
+    .icon-check {
+        color: #10b981;
+        font-size: 1.1rem;
+    }
+    
+    .icon-wrong {
+        color: #ef4444;
+        font-size: 1.1rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="fade-in-up">
     <h2 class="mb-4"><i class="bi bi-speedometer2"></i> Student Dashboard</h2>
     
     <div class="row">
-        <!-- Preferred Number Card -->
+        <!-- Preferred Number Card - LARGE DISPLAY -->
         <div class="col-md-4 mb-4">
-            <div class="card">
-                <div class="card-header">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
                     <h5 class="mb-0"><i class="bi bi-hash"></i> Your Preferred Number</h5>
                 </div>
-                <div class="card-body text-center">
-                    <div class="display-number">{{ student.preferred_number }}</div>
-                    <p class="text-muted">Tell this number to the Leader for Time In/Out</p>
+                <div class="card-body text-center d-flex flex-column justify-content-center">
+                    <div class="preferred-number-label">
+                        <i class="bi bi-person-badge"></i> Show this number to Leader
+                    </div>
+                    <div class="display-number">
+                        #{{ student.preferred_number }}
+                    </div>
+                    <div class="number-hint">
+                        <i class="bi bi-info-circle"></i> Use this number for Time In and Time Out
+                    </div>
                 </div>
             </div>
         </div>
         
         <!-- Student Info Card -->
         <div class="col-md-8 mb-4">
-            <div class="card">
-                <div class="card-header">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
                     <h5 class="mb-0"><i class="bi bi-person-badge"></i> Student Information</h5>
                 </div>
                 <div class="card-body">
                     <table class="table table-borderless">
                         <tr>
-                            <td width="150"><strong>Name:</strong></td>
+                            <td width="150"><strong><i class="bi bi-person"></i> Name:</strong></td>
                             <td>{{ student.first_name }} {{ student.last_name }}</td>
                         </tr>
                         <tr>
-                            <td><strong>Student ID:</strong></td>
+                            <td><strong><i class="bi bi-upc-scan"></i> Student ID:</strong></td>
                             <td>{{ student.student_id }}</td>
                         </tr>
                         <tr>
-                            <td><strong>Course:</strong></td>
+                            <td><strong><i class="bi bi-book"></i> Course:</strong></td>
                             <td>{{ student.get_course_display }}</td>
                         </tr>
                         <tr>
-                            <td><strong>Company:</strong></td>
+                            <td><strong><i class="bi bi-building"></i> Company:</strong></td>
                             <td>{{ student.get_company_display }}</td>
                         </tr>
                         <tr>
-                            <td><strong>Year Level:</strong></td>
+                            <td><strong><i class="bi bi-mortarboard"></i> Year Level:</strong></td>
                             <td>{{ student.get_year_level_display }}</td>
                         </tr>
                         <tr>
-                            <td><strong>Email:</strong></td>
+                            <td><strong><i class="bi bi-envelope"></i> Email:</strong></td>
                             <td>{{ student.user.email }}</td>
                         </tr>
                     </table>
@@ -59,33 +133,33 @@
     </div>
     
     <!-- Attendance History -->
-    <div class="card">
-        <div class="card-header">
+    <div class="card mt-3">
+        <div class="card-header bg-primary text-white">
             <h5 class="mb-0"><i class="bi bi-clock-history"></i> Attendance History</h5>
         </div>
         <div class="card-body">
             {% if attendance_history %}
             <div class="table-responsive">
                 <table class="table table-hover">
-                    <thead>
+                    <thead class="table-light">
                         <tr>
-                            <th>Date</th>
-                            <th>Time In</th>
-                            <th>Time Out</th>
-                            <th>Status</th>
+                            <th><i class="bi bi-calendar"></i> Date</th>
+                            <th><i class="bi bi-box-arrow-in-right"></i> Time In</th>
+                            <th><i class="bi bi-box-arrow-right"></i> Time Out</th>
+                            <th><i class="bi bi-flag"></i> Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for attendance in attendance_history %}
                         <tr>
-                            <td>{{ attendance.date|date:"F d, Y" }}</td>
+                            <td><strong>{{ attendance.date|date:"F d, Y" }}</strong></td>
                             <td>
                                 {% if attendance.time_in %}
                                     <i class="bi bi-check-circle-fill icon-check"></i>
                                     {{ attendance.time_in|time:"h:i A" }}
                                 {% else %}
                                     <i class="bi bi-x-circle-fill icon-wrong"></i>
-                                    Not recorded
+                                    <span class="text-muted">Not recorded</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -94,7 +168,7 @@
                                     {{ attendance.time_out|time:"h:i A" }}
                                 {% else %}
                                     <i class="bi bi-x-circle-fill icon-wrong"></i>
-                                    Not recorded
+                                    <span class="text-muted">Not recorded</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -108,10 +182,34 @@
                 </table>
             </div>
             {% else %}
-            <div class="alert alert-info">
-                <i class="bi bi-info-circle"></i> No attendance records found.
+            <div class="alert alert-info text-center py-4">
+                <i class="bi bi-info-circle fs-1"></i>
+                <p class="mt-3 mb-0">No attendance records found.</p>
+                <small>Your attendance will appear here after Task Force records your time.</small>
             </div>
             {% endif %}
+        </div>
+    </div>
+    
+    <!-- Status Legend -->
+    <div class="alert alert-light border mt-3">
+        <div class="row text-center">
+            <div class="col-md-3">
+                <span class="badge bg-success p-2">PRESENT</span>
+                <br><small>✓ In & ✓ Out</small>
+            </div>
+            <div class="col-md-3">
+                <span class="badge bg-warning p-2">LATE</span>
+                <br><small>✗ In & ✓ Out</small>
+            </div>
+            <div class="col-md-3">
+                <span class="badge bg-purple p-2" style="background: #8b5cf6;">CUTTING</span>
+                <br><small>✓ In & ✗ Out</small>
+            </div>
+            <div class="col-md-3">
+                <span class="badge bg-danger p-2">ABSENT</span>
+                <br><small>✗ In & ✗ Out</small>
+            </div>
         </div>
     </div>
 </div>
