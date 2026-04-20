@@ -20,6 +20,34 @@ taskforce = User.objects.create_user(
     last_name='Smith'
 )
 
+# Create Leader  Admin
+taskforce = User.objects.create_user(
+    username='leader1',
+    password='leader123',
+    email='leader1@nstp.edu',
+    user_type='admin_staff',
+    first_name='java',
+    last_name='Smith'
+)
+
+taskforce = User.objects.create_user(
+    username='leader2',
+    password='leader123',
+    email='leader2@nstp.edu',
+    user_type='admin_staff',
+    first_name='java',
+    last_name='wakez'
+)
+
+taskforce = User.objects.create_user(
+    username='leader3',
+    password='leader123',
+    email='leader3@nstp.edu',
+    user_type='admin_staff',
+    first_name='andiason',
+    last_name='chan'
+)
+
 exit()
 
 admin
